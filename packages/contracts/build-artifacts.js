@@ -66,6 +66,8 @@ if (hasError) process.exit(1);
 const OUR_FILES = [
   "contracts/PolycastMarket.sol",
   "contracts/PolycastMarketFactory.sol",
+  "contracts/PolycastAMM.sol",
+  "contracts/PolycastAMMFactory.sol",
   "contracts/resolvers/ManualResolver.sol",
   "contracts/mocks/MockERC20.sol",
 ];

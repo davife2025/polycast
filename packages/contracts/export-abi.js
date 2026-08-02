@@ -63,6 +63,8 @@ if (hasError) process.exit(1);
 const TARGETS = {
   "contracts/PolycastMarket.sol": "PolycastMarket",
   "contracts/PolycastMarketFactory.sol": "PolycastMarketFactory",
+  "contracts/PolycastAMM.sol": "PolycastAMM",
+  "contracts/PolycastAMMFactory.sol": "PolycastAMMFactory",
   "contracts/resolvers/ManualResolver.sol": "ManualResolver",
 };
 

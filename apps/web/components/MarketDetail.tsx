@@ -9,6 +9,7 @@ import {
 } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
 import { polycastMarketContract, erc20Abi } from "@/lib/contracts";
+import { TradingPanel } from "./TradingPanel";
 
 function ActionButton({
   onClick,
@@ -197,6 +198,13 @@ export function MarketDetail({ address }: { address: `0x${string}` }) {
           </span>
         </div>
       </div>
+
+      <TradingPanel
+        marketAddress={address}
+        collateralAddress={collateralAddress}
+        tokenDecimals={tokenDecimals}
+        tokenSymbol={(symbol as string) ?? "collateral"}
+      />
 
       {!isConnected ? (
         <div className="rounded-2xl border border-dashed border-border bg-surface-alt p-6 text-center text-sm text-muted">

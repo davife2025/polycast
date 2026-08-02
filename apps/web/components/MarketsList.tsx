@@ -6,8 +6,10 @@ import { formatUnits } from "viem";
 import {
   polycastMarketFactoryContract,
   polycastMarketContract,
+  polycastAMMFactoryContract,
+  polycastAMMContract,
 } from "@/lib/contracts";
-import { marketFactoryAddress } from "@/lib/chain";
+import { marketFactoryAddress, ammFactoryAddress } from "@/lib/chain";
 
 function StatusBadge({
   settled,
@@ -31,6 +33,40 @@ function StatusBadge({
       }`}
     >
       Resolved: {isYes ? "YES" : "NO"}
+    </span>
+  );
+}
+
+function PriceBadge({ marketAddress }: { marketAddress: `0x${string}` }) {
+  const ammFactoryDeployed = ammFactoryAddress.length > 0;
+
+  const { data: ammAddress } = useReadContract({
+    ...polycastAMMFactoryContract,
+    functionName: "ammForMarket",
+    args: [marketAddress],
+    query: { enabled: ammFactoryDeployed },
+  });
+
+  const hasAMM =
+    typeof ammAddress === "string" &&
+    ammAddress !== "0x0000000000000000000000000000000000000000";
+
+  const { data: priceData } = useReadContract({
+    ...(hasAMM
+      ? polycastAMMContract(ammAddress as `0x${string}`)
+      : { address: undefined, abi: undefined }),
+    functionName: "getPrices",
+    query: { enabled: hasAMM },
+  } as any);
+
+  if (!hasAMM) return null;
+
+  const [yesPriceWad] = (priceData as [bigint, bigint] | undefined) ?? [];
+  if (yesPriceWad === undefined) return null;
+
+  return (
+    <span className="font-mono text-xs font-semibold text-positive">
+      {(Number(yesPriceWad) / 1e16).toFixed(0)}% YES
     </span>
   );
 }
@@ -69,8 +105,9 @@ function MarketCard({ address }: { address: `0x${string}` }) {
             outcome={Number(outcome ?? 0)}
           />
         </div>
-        <div className="font-mono text-xs text-muted">
-          {formatUnits((totalCollateral as bigint) ?? 0n, 18)} collateral locked
+        <div className="flex items-center justify-between font-mono text-xs text-muted">
+          <span>{formatUnits((totalCollateral as bigint) ?? 0n, 18)} collateral locked</span>
+          <PriceBadge marketAddress={address} />
         </div>
       </div>
     </Link>
