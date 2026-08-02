@@ -9,3 +9,4 @@
 export { polycastMarketAbi } from "./generated/PolycastMarket";
 export { polycastMarketFactoryAbi } from "./generated/PolycastMarketFactory";
 export { manualResolverAbi } from "./generated/ManualResolver";
+export { erc20Abi } from "./erc20";
