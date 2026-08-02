@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
-    "fastify": "^4.28.1",
+    "fastify": "^5.11.0",
     "viem": "^2.21.19"
   },
   "devDependencies": {

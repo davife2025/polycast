@@ -3,22 +3,9 @@ import { formatUnits } from "viem";
 import { publicClient } from "../lib/chain";
 import { supabaseAdmin } from "../lib/supabase";
 import { syncMarketState } from "./upsertMarket";
+import { getMarketRowId } from "./db";
 
 const watchedMarkets = new Set<string>();
-
-async function getMarketRowId(marketAddress: string): Promise<string | null> {
-  const { data, error } = await supabaseAdmin
-    .from("markets")
-    .select("id")
-    .eq("chain_market_address", marketAddress)
-    .single();
-
-  if (error || !data) {
-    console.error(`No markets row found for ${marketAddress} yet — event dropped`, error);
-    return null;
-  }
-  return data.id;
-}
 
 async function recordEvent(params: {
   marketAddress: string;
