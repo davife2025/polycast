@@ -1,0 +1,21 @@
+{
+  "name": "polycast",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "contracts:compile": "npm run compile --workspace=@polycast/contracts",
+    "contracts:deploy:coston2": "npm run deploy:coston2 --workspace=@polycast/contracts"
+  },
+  "devDependencies": {
+    "turbo": "^2.1.3"
+  },
+  "packageManager": "npm@10.0.0"
+}
