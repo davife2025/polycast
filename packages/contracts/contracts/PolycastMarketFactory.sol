@@ -48,4 +48,10 @@ contract PolycastMarketFactory {
     function allMarketsLength() external view returns (uint256) {
         return allMarkets.length;
     }
+
+    /// @notice Convenience getter so a frontend can fetch every market
+    ///         address in a single call instead of looping allMarkets(i).
+    function getAllMarkets() external view returns (address[] memory) {
+        return allMarkets;
+    }
 }

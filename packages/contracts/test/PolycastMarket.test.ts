@@ -180,6 +180,9 @@ describe("PolycastMarketFactory", function () {
 
     expect(await factory.allMarketsLength()).to.equal(1);
 
+    const all = await factory.getAllMarkets();
+    expect(all.length).to.equal(1);
+
     await expect(
       factory.createMarket(
         marketId,
