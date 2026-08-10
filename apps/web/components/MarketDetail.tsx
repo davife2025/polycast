@@ -10,6 +10,7 @@ import {
 import { formatUnits, parseUnits } from "viem";
 import { polycastMarketContract, erc20Abi } from "@/lib/contracts";
 import { TradingPanel } from "./TradingPanel";
+import { StatusBadge } from "./StatusBadge";
 
 function ActionButton({
   onClick,
@@ -38,12 +39,23 @@ function ActionButton({
   );
 }
 
+function shortErrorMessage(error: unknown): string {
+  if (!error) return "";
+  const err = error as { shortMessage?: string; message?: string };
+  return err.shortMessage ?? err.message ?? "Something went wrong.";
+}
+
 export function MarketDetail({ address }: { address: `0x${string}` }) {
   const { address: userAddress, isConnected } = useAccount();
   const market = polycastMarketContract(address);
   const [amountInput, setAmountInput] = useState("");
 
-  const { data: marketData, refetch: refetchMarket } = useReadContracts({
+  const {
+    data: marketData,
+    error: marketError,
+    isLoading: marketLoading,
+    refetch: refetchMarket,
+  } = useReadContracts({
     contracts: [
       { ...market, functionName: "question" },
       { ...market, functionName: "collateralToken" },
@@ -113,17 +125,23 @@ export function MarketDetail({ address }: { address: `0x${string}` }) {
   const needsApproval =
     parsedAmount > 0n && ((allowance as bigint | undefined) ?? 0n) < parsedAmount;
 
-  const { writeContract, data: txHash, isPending: writePending } = useWriteContract();
-  const { isLoading: txConfirming } = useWaitForTransactionReceipt({
-    hash: txHash,
-    query: {
-      // refetch everything once a transaction confirms, so the UI reflects
-      // the new balances/state without the user needing to reload
-    },
-  });
+  const {
+    writeContract,
+    data: txHash,
+    isPending: writePending,
+    error: writeError,
+    reset: resetWrite,
+  } = useWriteContract();
+  const {
+    isLoading: txConfirming,
+    isSuccess: txConfirmed,
+    error: confirmError,
+  } = useWaitForTransactionReceipt({ hash: txHash });
+  const txError = writeError || confirmError;
 
   function onApprove() {
     if (!collateralAddress) return;
+    resetWrite();
     writeContract(
       {
         address: collateralAddress,
@@ -136,6 +154,7 @@ export function MarketDetail({ address }: { address: `0x${string}` }) {
   }
 
   function onMint() {
+    resetWrite();
     writeContract(
       { ...market, functionName: "mintPair", args: [parsedAmount] },
       { onSuccess: () => { refetchMarket(); refetchToken(); refetchUserShares(); } },
@@ -143,6 +162,7 @@ export function MarketDetail({ address }: { address: `0x${string}` }) {
   }
 
   function onMerge() {
+    resetWrite();
     writeContract(
       { ...market, functionName: "mergePair", args: [parsedAmount] },
       { onSuccess: () => { refetchMarket(); refetchToken(); refetchUserShares(); } },
@@ -150,6 +170,7 @@ export function MarketDetail({ address }: { address: `0x${string}` }) {
   }
 
   function onSettle() {
+    resetWrite();
     writeContract(
       { ...market, functionName: "settle", args: [] },
       { onSuccess: () => refetchMarket() },
@@ -157,14 +178,32 @@ export function MarketDetail({ address }: { address: `0x${string}` }) {
   }
 
   function onRedeem() {
+    resetWrite();
     writeContract(
       { ...market, functionName: "redeem", args: [] },
       { onSuccess: () => { refetchMarket(); refetchToken(); refetchUserShares(); } },
     );
   }
 
-  if (!marketData) {
-    return <div className="font-mono text-sm text-muted">Loading market…</div>;
+  if (marketError) {
+    return (
+      <div className="rounded-2xl border border-dashed border-negative bg-negative-dim p-6 text-sm text-negative">
+        Couldn&apos;t load this market: {shortErrorMessage(marketError)}
+        <br />
+        Check that your wallet is connected to Flare Coston2 and the
+        address is correct.
+      </div>
+    );
+  }
+
+  if (marketLoading || !marketData) {
+    return (
+      <div className="space-y-4">
+        <div className="h-3 w-48 animate-pulse rounded bg-surface-alt" />
+        <div className="h-8 w-full animate-pulse rounded bg-surface-alt" />
+        <div className="h-24 w-full animate-pulse rounded-2xl bg-surface-alt" />
+      </div>
+    );
   }
 
   const isSettled = Boolean(settled);
@@ -181,17 +220,7 @@ export function MarketDetail({ address }: { address: `0x${string}` }) {
           {question as string}
         </h1>
         <div className="flex items-center gap-3 font-mono text-xs">
-          <span
-            className={`rounded-full px-2.5 py-1 font-semibold ${
-              isSettled
-                ? outcomeIsYes
-                  ? "bg-positive-dim text-positive"
-                  : "bg-negative-dim text-negative"
-                : "bg-primary-dim text-primary"
-            }`}
-          >
-            {isSettled ? `Resolved: ${outcomeIsYes ? "YES" : "NO"}` : "Open"}
-          </span>
+          <StatusBadge settled={isSettled} outcome={Number(outcome ?? 0)} />
           <span className="text-muted">
             {formatUnits((totalCollateral as bigint) ?? 0n, tokenDecimals)}{" "}
             {(symbol as string) ?? ""} locked
@@ -205,6 +234,17 @@ export function MarketDetail({ address }: { address: `0x${string}` }) {
         tokenDecimals={tokenDecimals}
         tokenSymbol={(symbol as string) ?? "collateral"}
       />
+
+      {txError && (
+        <div className="rounded-lg bg-negative-dim px-4 py-3 text-sm text-negative">
+          {shortErrorMessage(txError)}
+        </div>
+      )}
+      {txConfirmed && !txError && (
+        <div className="rounded-lg bg-positive-dim px-4 py-3 text-sm text-positive">
+          Transaction confirmed.
+        </div>
+      )}
 
       {!isConnected ? (
         <div className="rounded-2xl border border-dashed border-border bg-surface-alt p-6 text-center text-sm text-muted">

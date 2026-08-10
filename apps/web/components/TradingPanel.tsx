@@ -22,6 +22,60 @@ function pct(priceWad: bigint | undefined) {
   return `${(Number(priceWad) / 1e16).toFixed(1)}%`;
 }
 
+function shortErrorMessage(error: unknown): string {
+  if (!error) return "";
+  const err = error as { shortMessage?: string; message?: string };
+  return err.shortMessage ?? err.message ?? "Something went wrong.";
+}
+
+const FEE_BPS = 200n; // must match PolycastAMM.sol's FEE_BPS constant
+const BPS_DENOMINATOR = 10_000n;
+const SLIPPAGE_BPS = 100n; // 1% default tolerance
+
+function ceilDiv(a: bigint, b: bigint): bigint {
+  return (a + b - 1n) / b;
+}
+
+/** Mirrors PolycastAMM.sol's buy() formula exactly, fee included. */
+function quoteBuy(
+  outcome: 0 | 1,
+  collateralIn: bigint,
+  yesReserve: bigint,
+  noReserve: bigint,
+): bigint {
+  if (yesReserve === 0n || noReserve === 0n || collateralIn === 0n) return 0n;
+  const k = yesReserve * noReserve;
+  const fee = (collateralIn * FEE_BPS) / BPS_DENOMINATOR;
+  const netIn = collateralIn - fee;
+
+  if (outcome === 1) {
+    const otherAfter = noReserve + netIn;
+    return yesReserve + netIn - ceilDiv(k, otherAfter);
+  }
+  const otherAfter = yesReserve + netIn;
+  return noReserve + netIn - ceilDiv(k, otherAfter);
+}
+
+/** Mirrors PolycastAMM.sol's sell() formula exactly (no fee yet on sell). */
+function quoteSell(
+  outcome: 0 | 1,
+  collateralOut: bigint,
+  yesReserve: bigint,
+  noReserve: bigint,
+): bigint {
+  if (collateralOut === 0n) return 0n;
+  const k = yesReserve * noReserve;
+
+  if (outcome === 1) {
+    if (noReserve <= collateralOut) return 0n;
+    const otherAfterRemoval = noReserve - collateralOut;
+    return ceilDiv(k, otherAfterRemoval) + collateralOut - yesReserve;
+  }
+  if (yesReserve <= collateralOut) return 0n;
+  const otherAfterRemoval = yesReserve - collateralOut;
+  return ceilDiv(k, otherAfterRemoval) + collateralOut - noReserve;
+}
+
 export function TradingPanel({
   marketAddress,
   collateralAddress,
@@ -61,6 +115,14 @@ export function TradingPanel({
 
   const [yesPriceWad, noPriceWad] = (priceData as [bigint, bigint] | undefined) ?? [];
 
+  const { data: reservesData, refetch: refetchReserves } = useReadContract({
+    ...(amm ?? { address: undefined, abi: undefined }),
+    functionName: "getReserves",
+    query: { enabled: Boolean(amm) },
+  } as any);
+
+  const [yesReserve, noReserve] = (reservesData as [bigint, bigint] | undefined) ?? [0n, 0n];
+
   const { data: allowanceData, refetch: refetchAllowance } = useReadContracts({
     contracts:
       collateralAddress && userAddress && amm
@@ -85,12 +147,31 @@ export function TradingPanel({
     }
   }, [amountInput, tokenDecimals]);
 
-  const { writeContract, data: txHash, isPending: writePending } = useWriteContract();
-  const { isLoading: txConfirming } = useWaitForTransactionReceipt({ hash: txHash });
+  const quotedAmount = useMemo(() => {
+    if (parsedAmount === 0n) return 0n;
+    return side === "buy"
+      ? quoteBuy(outcome, parsedAmount, yesReserve, noReserve)
+      : quoteSell(outcome, parsedAmount, yesReserve, noReserve);
+  }, [side, outcome, parsedAmount, yesReserve, noReserve]);
+
+  const {
+    writeContract,
+    data: txHash,
+    isPending: writePending,
+    error: writeError,
+    reset: resetWrite,
+  } = useWriteContract();
+  const {
+    isLoading: txConfirming,
+    isSuccess: txConfirmed,
+    error: confirmError,
+  } = useWaitForTransactionReceipt({ hash: txHash });
   const pending = writePending || txConfirming;
+  const txError = writeError || confirmError;
 
   function onApproveCollateral() {
     if (!collateralAddress || !amm) return;
+    resetWrite();
     writeContract(
       {
         address: collateralAddress,
@@ -104,6 +185,7 @@ export function TradingPanel({
 
   function onApproveShares() {
     if (!amm) return;
+    resetWrite();
     writeContract({
       ...polycastMarketContract(marketAddress),
       functionName: "setApprovalForAll",
@@ -113,23 +195,32 @@ export function TradingPanel({
 
   function onBuy() {
     if (!amm) return;
-    // minTokensOut left at 0 here for simplicity — a production UI should
-    // compute an expected tokensOut client-side (mirroring the contract's
-    // formula) and set a real slippage bound instead of accepting any price.
+    resetWrite();
+    // minTokensOut computed from the same formula the contract itself
+    // uses (quoteBuy, mirroring PolycastAMM.sol's buy()), with a 1%
+    // tolerance for reserves moving between quote and confirmation.
+    const minTokensOut =
+      quotedAmount > 0n
+        ? (quotedAmount * (BPS_DENOMINATOR - SLIPPAGE_BPS)) / BPS_DENOMINATOR
+        : 0n;
     writeContract(
-      { ...amm, functionName: "buy", args: [BigInt(outcome), parsedAmount, 0n] },
-      { onSuccess: () => refetchPrices() },
+      { ...amm, functionName: "buy", args: [BigInt(outcome), parsedAmount, minTokensOut] },
+      { onSuccess: () => { refetchPrices(); refetchReserves(); } },
     );
   }
 
   function onSell() {
     if (!amm) return;
-    // maxTokensIn set to a large ceiling for the same reason noted in onBuy —
-    // a production UI should compute this properly for real slippage protection.
-    const maxTokensIn = parsedAmount * 1000n;
+    resetWrite();
+    // maxTokensIn computed the same way, via quoteSell (mirroring the
+    // contract's sell() formula), with the same 1% tolerance.
+    const maxTokensIn =
+      quotedAmount > 0n
+        ? (quotedAmount * (BPS_DENOMINATOR + SLIPPAGE_BPS)) / BPS_DENOMINATOR
+        : parsedAmount * 2n; // fallback if quote isn't available yet
     writeContract(
       { ...amm, functionName: "sell", args: [BigInt(outcome), parsedAmount, maxTokensIn] },
-      { onSuccess: () => refetchPrices() },
+      { onSuccess: () => { refetchPrices(); refetchReserves(); } },
     );
   }
 
@@ -207,9 +298,20 @@ export function TradingPanel({
               type="text"
               value={amountInput}
               onChange={(e) => setAmountInput(e.target.value)}
-              placeholder={side === "buy" ? `${tokenSymbol} to spend` : "shares to sell"}
+              placeholder={
+                side === "buy"
+                  ? `${tokenSymbol} to spend`
+                  : `${tokenSymbol} you want to receive`
+              }
               className="w-full rounded-lg border border-border bg-bg px-3 py-2 font-mono text-sm text-text"
             />
+            {parsedAmount > 0n && (
+              <p className="mt-2 font-mono text-xs text-muted">
+                {side === "buy"
+                  ? `≈ ${formatUnits(quotedAmount, tokenDecimals)} ${outcome === 1 ? "YES" : "NO"} shares (2% fee included, 1% slippage tolerance)`
+                  : `≈ ${formatUnits(quotedAmount, tokenDecimals)} ${outcome === 1 ? "YES" : "NO"} shares needed (1% slippage tolerance)`}
+              </p>
+            )}
           </div>
 
           {side === "buy" ? (
@@ -252,6 +354,17 @@ export function TradingPanel({
             Selling requires a one-time approval on the market contract
             (standard ERC-1155 operator approval) before the first sell.
           </p>
+
+          {txError && (
+            <div className="mt-3 rounded-lg bg-negative-dim px-3 py-2 text-xs text-negative">
+              {shortErrorMessage(txError)}
+            </div>
+          )}
+          {txConfirmed && !txError && (
+            <div className="mt-3 rounded-lg bg-positive-dim px-3 py-2 text-xs text-positive">
+              Transaction confirmed.
+            </div>
+          )}
         </>
       )}
     </div>

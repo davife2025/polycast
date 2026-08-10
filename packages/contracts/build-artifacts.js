@@ -68,7 +68,12 @@ const OUR_FILES = [
   "contracts/PolycastMarketFactory.sol",
   "contracts/PolycastAMM.sol",
   "contracts/PolycastAMMFactory.sol",
+  "contracts/oracles/PolymarketPriceOracle.sol",
+  "contracts/oracles/PolycastOracleMinter.sol",
+  "contracts/oracles/PolycastOracleMinterFactory.sol",
   "contracts/resolvers/ManualResolver.sol",
+  "contracts/resolvers/FtsoPriceResolver.sol",
+  "contracts/resolvers/FdcWeb2JsonResolver.sol",
   "contracts/mocks/MockERC20.sol",
 ];
 

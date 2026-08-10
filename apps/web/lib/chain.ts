@@ -1,14 +1,15 @@
 /**
- * Flare Coston2 testnet configuration.
+ * Flare Coston2 testnet configuration + wagmi setup.
  *
  * This is the single place chain config lives. When we move to Flare
  * Mainnet, this file (plus env vars) is what changes — application code
  * elsewhere should import from here rather than hardcoding chain details.
- *
- * Wallet connection (wagmi/viem) gets wired up against this in Session 3.
  */
+import { http, createConfig } from "wagmi";
+import { injected } from "wagmi/connectors";
+import { defineChain } from "viem";
 
-export const costonTwo = {
+export const costonTwo = defineChain({
   id: 114,
   name: "Flare Testnet Coston2",
   nativeCurrency: {
@@ -33,7 +34,34 @@ export const costonTwo = {
     },
   },
   testnet: true,
-} as const;
+});
 
+/// The factory contract address once it's deployed via
+/// `packages/contracts`'s deploy:coston2 script (see that package's
+/// README). Empty until then — components should handle that gracefully
+/// rather than assuming it's set.
 export const marketFactoryAddress = (process.env
   .NEXT_PUBLIC_MARKET_FACTORY_ADDRESS ?? "") as `0x${string}`;
+
+/// The AMM factory address, once deployed (see packages/contracts). A
+/// market can exist without an AMM (pure OTC via mintPair/mergePair) —
+/// components should check `ammForMarket(marketAddress)` returning the
+/// zero address as "no AMM yet" rather than assuming one exists.
+export const ammFactoryAddress = (process.env
+  .NEXT_PUBLIC_AMM_FACTORY_ADDRESS ?? "") as `0x${string}`;
+
+export const wagmiConfig = createConfig({
+  chains: [costonTwo],
+  connectors: [injected()],
+  transports: {
+    [costonTwo.id]: http(),
+  },
+  ssr: true,
+});
+
+declare module "wagmi" {
+  interface Register {
+    config: typeof wagmiConfig;
+  }
+}
+

@@ -58,19 +58,16 @@ incrementally rather than re-delivered whole each time.
 | 4 | Indexer service in `apps/api`, Supabase sync |
 | 5 | Trading UI, portfolio, resolution flow, polish |
 
-## Getting started (once dependencies are installed locally)
+## Getting started
+
+See **[SETUP.md](./SETUP.md)** for the full walkthrough — provisioning
+Supabase, creating a testnet wallet, deploying the contracts, and filling
+in each app's env file (note: `apps/web` and `apps/api` each read their
+own `.env.local`/`.env` from their own directory, not from the root).
+
+Quick version, once every env file from SETUP.md is filled in:
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in RPC keys, Supabase keys, etc.
-npm run dev                  # runs apps/web and apps/api in parallel via turbo
-```
-
-To work on contracts specifically:
-
-```bash
-cd packages/contracts
-cp .env.example .env         # set PRIVATE_KEY (a Coston2 testnet key, funded via faucet)
-npm run compile
-npm run deploy:coston2
+npm run dev   # runs apps/web and apps/api in parallel via turbo
 ```

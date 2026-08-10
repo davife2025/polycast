@@ -65,6 +65,9 @@ const TARGETS = {
   "contracts/PolycastMarketFactory.sol": "PolycastMarketFactory",
   "contracts/PolycastAMM.sol": "PolycastAMM",
   "contracts/PolycastAMMFactory.sol": "PolycastAMMFactory",
+  "contracts/oracles/PolymarketPriceOracle.sol": "PolymarketPriceOracle",
+  "contracts/oracles/PolycastOracleMinter.sol": "PolycastOracleMinter",
+  "contracts/oracles/PolycastOracleMinterFactory.sol": "PolycastOracleMinterFactory",
   "contracts/resolvers/ManualResolver.sol": "ManualResolver",
 };
 

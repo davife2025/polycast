@@ -11,13 +11,19 @@ export function Nav() {
         <Wordmark size={19} />
       </Link>
       <div className="flex items-center gap-8">
-        <Link href="/" className="cursor-pointer text-sm font-medium text-muted">
+        <Link href="/" className="text-sm font-medium text-muted hover:text-text">
           Markets
         </Link>
-        <span className="cursor-pointer text-sm font-medium text-muted">
+        <span
+          className="text-sm font-medium text-muted-dim"
+          title="Coming soon"
+        >
           Portfolio
         </span>
-        <span className="cursor-pointer text-sm font-medium text-muted">
+        <span
+          className="text-sm font-medium text-muted-dim"
+          title="Coming soon"
+        >
           Docs
         </span>
         <ConnectWalletButton />

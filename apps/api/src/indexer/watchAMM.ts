@@ -21,6 +21,7 @@ async function recordEvent(params: {
   const { error } = await supabaseAdmin.from("market_events").upsert(
     {
       market_id: marketId,
+      source: "amm",
       event_type: params.eventType,
       account: params.account ?? null,
       amount: params.amount !== undefined ? formatUnits(params.amount, 18) : null,

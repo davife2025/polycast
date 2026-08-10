@@ -29,25 +29,50 @@ import {PolycastMarket} from "./PolycastMarket.sol";
 /// YES, the pool's YES reserve is depleted relative to NO, which is
 /// exactly what should make YES more expensive.
 ///
-/// SCOPE NOTE: `addLiquidity` uses a simplified share-accounting formula
-/// (see comment on that function) that's fine for an initial LP or for
-/// adding to a freshly-seeded pool, but is NOT fully manipulation-resistant
-/// against a sandwich attack (imbalance the pool, add liquidity at a
-/// favorable implied price, trade back) once the pool has already seen
-/// real trading activity. This is flagged clearly rather than presented
-/// as production-hardened — a more careful design (e.g. Uniswap V2's
-/// dual-asset deposit matching the current ratio) is a good follow-up
-/// before this handles real value on Mainnet. There is also currently
-/// **no trading fee** (0%) — every trade is exact-invariant, no skim to
-/// LPs. Adding a fee is straightforward but was left out this session to
-/// keep the core buy/sell math (the correctness-critical part) as simple
-/// as possible to verify.
+/// SCOPE NOTE (updated): `addLiquidity` now uses the same manipulation-
+/// resistant LP accounting as Uniswap V2 — liquidity is valued as
+/// sqrt(yesReserve * noReserve), and a small MINIMUM_LIQUIDITY is
+/// permanently locked on the first deposit (never assigned to any
+/// address) specifically to close the classic "first depositor donates
+/// a tiny amount to manipulate the share price for the next depositor"
+/// attack. This is a real improvement over the earlier sum-of-reserves
+/// heuristic, and matches an audited, real-world design as closely as
+/// our different deposit shape allows.
+///
+/// It does NOT fully close every manipulation vector: because a deposit
+/// here is always a single collateral amount minted as an equal pair
+/// (never a dual-asset deposit matching the current ratio, the way
+/// Uniswap V2's `addLiquidity` router works), adding liquidity to an
+/// already-imbalanced pool still shifts its ratio slightly. A caller
+/// could in principle trade to imbalance the pool, add liquidity, then
+/// trade back — still flagged as a real, open gap rather than presented
+/// as closed. A dual-asset deposit mode is a good follow-up.
+///
+/// A trading fee (FEE_BPS, 2% by default) now applies to `buy()`. It does
+/// NOT yet apply to `sell()` — deliberately, since sell's formula would
+/// need its own separate, carefully-verified derivation to add a fee
+/// without introducing a new bug, and this session prioritized getting
+/// the LP-accounting fix right over rushing a second one. This asymmetry
+/// (buy has a fee, sell doesn't) is flagged, not hidden — it's an honest
+/// gap, not a design endorsement.
 contract PolycastAMM is ERC1155Holder {
     using SafeERC20 for IERC20;
 
     uint256 public constant NO = 0;
     uint256 public constant YES = 1;
     uint256 private constant WAD = 1e18;
+
+    /// @dev Permanently locked on the first liquidity deposit (never
+    ///      credited to any address), closing the classic first-depositor
+    ///      share-price manipulation attack. Same trick, same constant
+    ///      value, as Uniswap V2.
+    uint256 public constant MINIMUM_LIQUIDITY = 1000;
+
+    /// @dev 2% fee on buys, taken from the input collateral before the
+    ///      swap math runs. See the contract-level SCOPE NOTE for why
+    ///      sell() doesn't have a matching fee yet.
+    uint256 public constant FEE_BPS = 200;
+    uint256 private constant BPS_DENOMINATOR = 10_000;
 
     PolycastMarket public immutable market;
     IERC20 public immutable collateralToken;
@@ -89,26 +114,39 @@ contract PolycastAMM is ERC1155Holder {
 
     /// @notice Seeds or adds to the pool. Always adds equal YES+NO (via
     ///         mintPair), so a deposit alone never moves the price on a
-    ///         freshly-seeded (balanced) pool. LP share accounting uses
-    ///         "sum of reserves" as a simplified value heuristic — see the
-    ///         SCOPE NOTE on the contract for the manipulation caveat.
+    ///         freshly-seeded (balanced) pool.
+    ///
+    /// LP shares are valued the same way Uniswap V2 values liquidity:
+    /// `sqrt(yesReserve * noReserve)`. On the very first deposit, a small
+    /// `MINIMUM_LIQUIDITY` amount is permanently locked (counted in
+    /// totalLpShares but never credited to any address) — this closes the
+    /// classic attack where a first depositor donates a tiny amount to
+    /// manipulate the share price for whoever deposits next. See the
+    /// contract-level SCOPE NOTE for what this does and doesn't protect
+    /// against.
     function addLiquidity(uint256 collateralAmount) external returns (uint256 lpSharesMinted) {
         require(collateralAmount > 0, "amount must be > 0");
 
         collateralToken.safeTransferFrom(msg.sender, address(this), collateralAmount);
         (uint256 yesReserve, uint256 noReserve) = getReserves();
-        uint256 poolValueBefore = yesReserve + noReserve;
 
         market.mintPair(collateralAmount);
 
-        if (totalLpShares == 0 || poolValueBefore == 0) {
-            lpSharesMinted = collateralAmount * 2;
+        uint256 yesReserveAfter = yesReserve + collateralAmount;
+        uint256 noReserveAfter = noReserve + collateralAmount;
+        uint256 liquidityAfter = Math.sqrt(yesReserveAfter * noReserveAfter);
+
+        if (totalLpShares == 0) {
+            require(liquidityAfter > MINIMUM_LIQUIDITY, "insufficient initial liquidity");
+            lpSharesMinted = liquidityAfter - MINIMUM_LIQUIDITY;
+            totalLpShares = liquidityAfter;
         } else {
-            lpSharesMinted = (totalLpShares * (2 * collateralAmount)) / poolValueBefore;
+            uint256 liquidityBefore = Math.sqrt(yesReserve * noReserve);
+            lpSharesMinted = (totalLpShares * (liquidityAfter - liquidityBefore)) / liquidityBefore;
+            totalLpShares += lpSharesMinted;
         }
 
         lpShares[msg.sender] += lpSharesMinted;
-        totalLpShares += lpSharesMinted;
 
         emit LiquidityAdded(msg.sender, collateralAmount, lpSharesMinted);
     }
@@ -136,10 +174,13 @@ contract PolycastAMM is ERC1155Holder {
     }
 
     /// @notice Buy `outcome` (0=NO, 1=YES) with `collateralIn` collateral.
-    ///         Mints a full pair for collateralIn, then swaps the unwanted
-    ///         side along the constant-product curve for extra `outcome`
-    ///         tokens, so the trader ends up with more `outcome` than a
-    ///         plain mintPair would have given them.
+    ///         A `FEE_BPS` fee is taken from collateralIn first; the full
+    ///         amount (fee included) is still minted as a pair, so the fee
+    ///         portion permanently deepens the pool's reserves rather than
+    ///         being separately tracked — it's automatically, proportionally
+    ///         owned by whoever holds LP shares from then on, with no extra
+    ///         bookkeeping needed. Only the post-fee (net) amount drives the
+    ///         actual swap math below.
     function buy(
         uint256 outcome,
         uint256 collateralIn,
@@ -153,6 +194,11 @@ contract PolycastAMM is ERC1155Holder {
         require(yesReserve > 0 && noReserve > 0, "no liquidity");
         uint256 k = yesReserve * noReserve;
 
+        uint256 fee = (collateralIn * FEE_BPS) / BPS_DENOMINATOR;
+        uint256 netIn = collateralIn - fee;
+
+        // Mint the FULL amount (including fee) as a pair — the fee's
+        // share of this mint is what stays as permanent bonus reserve.
         market.mintPair(collateralIn);
 
         // NOTE ON ROUNDING: we round k/otherAfter UP (ceiling), not down.
@@ -164,12 +210,16 @@ contract PolycastAMM is ERC1155Holder {
         // term instead makes tokensOut slightly smaller than ideal,
         // which is the safe direction: the pool never gives out more
         // than the invariant actually allows.
+        //
+        // Only `netIn` (not the full collateralIn) feeds the swap math —
+        // the fee's contribution to the mint above still happened, it
+        // just isn't part of what the trader gets swapped out to them.
         if (outcome == YES) {
-            uint256 otherAfter = noReserve + collateralIn;
-            tokensOut = (yesReserve + collateralIn) - Math.ceilDiv(k, otherAfter);
+            uint256 otherAfter = noReserve + netIn;
+            tokensOut = (yesReserve + netIn) - Math.ceilDiv(k, otherAfter);
         } else {
-            uint256 otherAfter = yesReserve + collateralIn;
-            tokensOut = (noReserve + collateralIn) - Math.ceilDiv(k, otherAfter);
+            uint256 otherAfter = yesReserve + netIn;
+            tokensOut = (noReserve + netIn) - Math.ceilDiv(k, otherAfter);
         }
 
         require(tokensOut >= minTokensOut, "slippage: tokensOut below minimum");

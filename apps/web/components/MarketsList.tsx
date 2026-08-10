@@ -10,31 +10,12 @@ import {
   polycastAMMContract,
 } from "@/lib/contracts";
 import { marketFactoryAddress, ammFactoryAddress } from "@/lib/chain";
+import { StatusBadge } from "./StatusBadge";
 
-function StatusBadge({
-  settled,
-  outcome,
-}: {
-  settled: boolean;
-  outcome: number;
-}) {
-  if (!settled) {
-    return (
-      <span className="rounded-full bg-primary-dim px-2.5 py-1 font-mono text-xs font-semibold text-primary">
-        Open
-      </span>
-    );
-  }
-  const isYes = outcome === 1;
-  return (
-    <span
-      className={`rounded-full px-2.5 py-1 font-mono text-xs font-semibold ${
-        isYes ? "bg-positive-dim text-positive" : "bg-negative-dim text-negative"
-      }`}
-    >
-      Resolved: {isYes ? "YES" : "NO"}
-    </span>
-  );
+function shortErrorMessage(error: unknown): string {
+  if (!error) return "";
+  const err = error as { shortMessage?: string; message?: string };
+  return err.shortMessage ?? err.message ?? "Something went wrong.";
 }
 
 function PriceBadge({ marketAddress }: { marketAddress: `0x${string}` }) {
@@ -117,7 +98,11 @@ function MarketCard({ address }: { address: `0x${string}` }) {
 export function MarketsList() {
   const factoryDeployed = marketFactoryAddress.length > 0;
 
-  const { data: marketAddresses, isLoading } = useReadContract({
+  const {
+    data: marketAddresses,
+    isLoading,
+    error,
+  } = useReadContract({
     ...polycastMarketFactoryContract,
     functionName: "getAllMarkets",
     query: { enabled: factoryDeployed },
@@ -136,6 +121,19 @@ export function MarketsList() {
             NEXT_PUBLIC_MARKET_FACTORY_ADDRESS
           </code>{" "}
           in your .env.local.
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-dashed border-negative bg-negative-dim p-8 text-center">
+        <p className="text-sm text-negative">
+          Couldn&apos;t reach the factory contract: {shortErrorMessage(error)}
+          <br />
+          Check that your wallet/browser is connected to Flare Coston2 and
+          the RPC is reachable.
         </p>
       </div>
     );

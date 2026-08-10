@@ -21,6 +21,9 @@ create table if not exists markets (
   resolver_type text not null check (resolver_type in ('ftso', 'web2json', 'manual', 'unknown')),
   resolver_source text,                             -- FTSO feed id, or API endpoint identifier
   amm_address text,                                  -- set once a PolycastAMM exists for this market (Session 6); null means OTC-only via mintPair/mergePair
+  oracle_minter_address text,                         -- set once a PolycastOracleMinter exists for this market; null means no tracking minter
+  price_oracle_address text,                          -- the PolymarketPriceOracle this market's minter reads from, if any
+  oracle_market_id text,                              -- the bytes32 key this market is registered under in that oracle
   status text not null default 'open' check (status in ('open', 'resolving', 'resolved', 'disputed')),
   resolved_outcome smallint,                        -- null until resolved; 0 = NO, 1 = YES
   yes_price_cached numeric(5, 4),                   -- last known YES price, 0-1 — populated by the indexer once an AMM exists (Session 6), null before that
@@ -45,6 +48,7 @@ create index if not exists idx_markets_created_at on markets(created_at desc);
 create table if not exists market_events (
   id uuid primary key default uuid_generate_v4(),
   market_id uuid not null references markets(id) on delete cascade,
+  source text not null default 'market' check (source in ('market', 'amm', 'oracle_minter')),
   event_type text not null check (event_type in ('mint', 'merge', 'settle', 'redeem', 'buy', 'sell', 'liquidity_add', 'liquidity_remove')),
   account text,                                      -- null for 'settle', which has no single actor
   amount numeric(20, 6),                              -- null for 'settle'

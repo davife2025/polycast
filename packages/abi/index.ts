@@ -10,5 +10,8 @@ export { polycastMarketAbi } from "./generated/PolycastMarket";
 export { polycastMarketFactoryAbi } from "./generated/PolycastMarketFactory";
 export { polycastAMMAbi } from "./generated/PolycastAMM";
 export { polycastAMMFactoryAbi } from "./generated/PolycastAMMFactory";
+export { polymarketPriceOracleAbi } from "./generated/PolymarketPriceOracle";
+export { polycastOracleMinterAbi } from "./generated/PolycastOracleMinter";
+export { polycastOracleMinterFactoryAbi } from "./generated/PolycastOracleMinterFactory";
 export { manualResolverAbi } from "./generated/ManualResolver";
 export { erc20Abi } from "./erc20";

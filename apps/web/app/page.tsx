@@ -1,47 +1,10 @@
-import { Wordmark } from "@/components/Logo";
-import { OddsCard } from "@/components/OddsCard";
-
-const MARKETS = [
-  {
-    label: "Will Flare FTSO cross $2B in secured value by Q4?",
-    yes: 73,
-    volume: "$1.2M",
-    chains: 4,
-  },
-  {
-    label: "ETH spot ETF inflow exceeds $500M this week",
-    yes: 61,
-    volume: "$860K",
-    chains: 3,
-  },
-  {
-    label: "New cross-chain stablecoin launches on Flare by EOY",
-    yes: 38,
-    volume: "$410K",
-    chains: 5,
-  },
-];
+import { Nav } from "@/components/Nav";
+import { MarketsList } from "@/components/MarketsList";
 
 export default function HomePage() {
   return (
     <main>
-      <nav className="flex items-center justify-between border-b border-border bg-surface px-12 py-5">
-        <Wordmark size={19} />
-        <div className="flex items-center gap-8">
-          <span className="cursor-pointer text-sm font-medium text-muted">
-            Markets
-          </span>
-          <span className="cursor-pointer text-sm font-medium text-muted">
-            Portfolio
-          </span>
-          <span className="cursor-pointer text-sm font-medium text-muted">
-            Docs
-          </span>
-          <button className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white">
-            Connect wallet
-          </button>
-        </div>
-      </nav>
+      <Nav />
 
       <section className="mx-auto max-w-6xl px-12 pb-10 pt-16">
         <div className="grid grid-cols-1 items-center gap-12 md:grid-cols-2">
@@ -59,18 +22,10 @@ export default function HomePage() {
               cross-chain oracle consensus — so an outcome asset means the
               same thing no matter which network it moves through.
             </p>
-            <div className="flex gap-3.5">
-              <button className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-white shadow-[0_6px_16px_rgba(108,92,231,0.3)]">
-                Explore markets
-              </button>
-              <button className="rounded-xl border border-border bg-surface px-6 py-3 text-sm font-medium text-text">
-                Read the docs
-              </button>
-            </div>
           </div>
           <div className="rounded-2xl border border-border bg-surface p-6 shadow-[0_4px_20px_rgba(20,22,43,0.05)]">
             <div className="flex h-52 items-center justify-center font-mono text-sm text-muted-dim">
-              live convergence visual — wired up in Session 3
+              live convergence visual — wired up in a later session
             </div>
           </div>
         </div>
@@ -80,11 +35,7 @@ export default function HomePage() {
         <div className="mb-4 font-mono text-xs font-semibold uppercase tracking-wide text-muted-dim">
           Live markets
         </div>
-        <div className="grid gap-3.5">
-          {MARKETS.map((m) => (
-            <OddsCard key={m.label} {...m} />
-          ))}
-        </div>
+        <MarketsList />
       </section>
     </main>
   );
