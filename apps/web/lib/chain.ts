@@ -50,6 +50,17 @@ export const marketFactoryAddress = (process.env
 export const ammFactoryAddress = (process.env
   .NEXT_PUBLIC_AMM_FACTORY_ADDRESS ?? "") as `0x${string}`;
 
+/// The oracle minter factory address, once deployed. Same "empty means
+/// not deployed yet" convention as the other factory addresses.
+export const oracleMinterFactoryAddress = (process.env
+  .NEXT_PUBLIC_ORACLE_MINTER_FACTORY_ADDRESS ?? "") as `0x${string}`;
+
+/// Base URL for apps/api — used only for read-only display data
+/// (portfolio lookups, activity feeds). Never used for anything that
+/// moves money; all writes go straight from the user's wallet to the
+/// chain, never through this API.
+export const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+
 export const wagmiConfig = createConfig({
   chains: [costonTwo],
   connectors: [injected()],

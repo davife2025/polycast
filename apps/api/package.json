@@ -9,6 +9,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@fastify/cors": "9.0.1",
     "@polycast/abi": "*",
     "@supabase/supabase-js": "2.45.4",
     "dotenv": "16.4.5",

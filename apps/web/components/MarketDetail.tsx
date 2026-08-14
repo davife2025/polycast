@@ -10,6 +10,8 @@ import {
 import { formatUnits, parseUnits } from "viem";
 import { polycastMarketContract, erc20Abi } from "@/lib/contracts";
 import { TradingPanel } from "./TradingPanel";
+import { TrackingPanel } from "./TrackingPanel";
+import { ActivityFeed } from "./ActivityFeed";
 import { StatusBadge } from "./StatusBadge";
 
 function ActionButton({
@@ -235,6 +237,13 @@ export function MarketDetail({ address }: { address: `0x${string}` }) {
         tokenSymbol={(symbol as string) ?? "collateral"}
       />
 
+      <TrackingPanel
+        marketAddress={address}
+        collateralAddress={collateralAddress}
+        tokenDecimals={tokenDecimals}
+        tokenSymbol={(symbol as string) ?? "collateral"}
+      />
+
       {txError && (
         <div className="rounded-lg bg-negative-dim px-4 py-3 text-sm text-negative">
           {shortErrorMessage(txError)}
@@ -334,6 +343,13 @@ export function MarketDetail({ address }: { address: `0x${string}` }) {
           </div>
         </>
       )}
+
+      <div>
+        <div className="mb-3 font-mono text-xs uppercase tracking-wide text-muted-dim">
+          Activity
+        </div>
+        <ActivityFeed marketAddress={address} />
+      </div>
     </div>
   );
 }

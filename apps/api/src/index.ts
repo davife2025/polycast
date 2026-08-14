@@ -4,11 +4,18 @@
 // top-to-bottom in the order written, so this ordering is load-bearing.
 import "dotenv/config";
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import { marketsRoutes } from "./routes/markets";
+import { portfolioRoutes } from "./routes/portfolio";
 import { startIndexer } from "./indexer";
 import { startPolymarketRelayer } from "./relayer";
 
 const app = Fastify({ logger: true });
+
+// Read-only public data — safe to allow any origin. Nothing behind CORS
+// here can write anything; all writes go through the user's own wallet
+// directly to the chain, never through this API.
+app.register(cors, { origin: true });
 
 app.get("/health", async () => ({
   status: "ok",
@@ -17,6 +24,7 @@ app.get("/health", async () => ({
 }));
 
 app.register(marketsRoutes);
+app.register(portfolioRoutes);
 
 const port = Number(process.env.PORT ?? 4000);
 

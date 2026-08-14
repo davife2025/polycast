@@ -14,12 +14,15 @@ export function Nav() {
         <Link href="/" className="text-sm font-medium text-muted hover:text-text">
           Markets
         </Link>
-        <span
-          className="text-sm font-medium text-muted-dim"
-          title="Coming soon"
-        >
+        <Link href="/portfolio" className="text-sm font-medium text-muted hover:text-text">
           Portfolio
-        </span>
+        </Link>
+        <Link
+          href="/markets/create"
+          className="text-sm font-medium text-muted hover:text-text"
+        >
+          Create
+        </Link>
         <span
           className="text-sm font-medium text-muted-dim"
           title="Coming soon"
