@@ -1,5 +1,6 @@
 import { polycastAMMFactoryAbi } from "@polycast/abi";
 import { publicClient } from "../lib/chain";
+import { getContractEventsChunked } from "./getLogsChunked";
 import { setMarketAmmAddress, syncAmmPrice } from "./upsertAmm";
 import { watchAMM } from "./watchAMM";
 
@@ -27,11 +28,10 @@ export async function watchAMMFactory(ammFactoryAddress: `0x${string}`) {
   const ammFactory = { address: ammFactoryAddress, abi: polycastAMMFactoryAbi } as const;
 
   console.log(`Backfilling existing AMMs from factory ${ammFactoryAddress}...`);
-  const existingLogs = await publicClient.getContractEvents({
+  const existingLogs = await getContractEventsChunked({
     ...ammFactory,
     eventName: "AMMCreated",
     fromBlock: 0n,
-    toBlock: "latest",
   });
 
   console.log(`Found ${existingLogs.length} existing AMM(s).`);

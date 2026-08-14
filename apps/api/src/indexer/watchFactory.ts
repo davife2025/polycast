@@ -1,5 +1,6 @@
 import { polycastMarketFactoryAbi } from "@polycast/abi";
 import { publicClient } from "../lib/chain";
+import { getContractEventsChunked } from "./getLogsChunked";
 import { upsertNewMarket } from "./upsertMarket";
 import { watchMarket } from "./watchMarket";
 
@@ -38,11 +39,10 @@ export async function watchFactory(factoryAddress: `0x${string}`) {
   const factory = { address: factoryAddress, abi: polycastMarketFactoryAbi } as const;
 
   console.log(`Backfilling existing markets from factory ${factoryAddress}...`);
-  const existingLogs = await publicClient.getContractEvents({
+  const existingLogs = await getContractEventsChunked({
     ...factory,
     eventName: "MarketCreated",
     fromBlock: 0n,
-    toBlock: "latest",
   });
 
   console.log(`Found ${existingLogs.length} existing market(s).`);

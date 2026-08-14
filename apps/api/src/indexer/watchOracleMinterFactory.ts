@@ -1,5 +1,6 @@
 import { polycastOracleMinterFactoryAbi } from "@polycast/abi";
 import { publicClient } from "../lib/chain";
+import { getContractEventsChunked } from "./getLogsChunked";
 import { setMarketOracleMinterAddress } from "./upsertOracleMinter";
 import { watchOracleMinter } from "./watchOracleMinter";
 
@@ -36,11 +37,10 @@ export async function watchOracleMinterFactory(factoryAddress: `0x${string}`) {
   const factory = { address: factoryAddress, abi: polycastOracleMinterFactoryAbi } as const;
 
   console.log(`Backfilling existing oracle minters from factory ${factoryAddress}...`);
-  const existingLogs = await publicClient.getContractEvents({
+  const existingLogs = await getContractEventsChunked({
     ...factory,
     eventName: "OracleMinterCreated",
     fromBlock: 0n,
-    toBlock: "latest",
   });
 
   console.log(`Found ${existingLogs.length} existing oracle minter(s).`);
