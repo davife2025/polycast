@@ -11,10 +11,15 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
-    "/markets/[address]/page": [
+    "/portfolio/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/markets/[address]/page.js"
+      "static/chunks/app/portfolio/page.js"
+    ],
+    "/markets/create/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/markets/create/page.js"
     ]
   }
 }
