@@ -1,15 +1,6 @@
 import { ethers } from "hardhat";
 
-/**
- * Deploy script — deploys the full contract set: the market factory,
- * the AMM factory, all three resolvers, a demo market, and a demo AMM
- * seeded with liquidity so the frontend has a real price to show
- * immediately after deploy.
- *
- * NOTE: uses MockERC20 as collateral for this smoke-test deployment.
- * A later session swaps this for a real Coston2 collateral token address
- * (USDT0, or an FAsset like FXRP) once that's decided.
- */
+
 async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Deploying with account:", deployer.address);
