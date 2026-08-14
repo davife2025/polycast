@@ -25,7 +25,7 @@ export default function HomePage() {
           </div>
           <div className="rounded-2xl border border-border bg-surface p-6 shadow-[0_4px_20px_rgba(20,22,43,0.05)]">
             <div className="flex h-52 items-center justify-center font-mono text-sm text-muted-dim">
-              live convergence visual — wired up in a later session
+              live convergence visual
             </div>
           </div>
         </div>
