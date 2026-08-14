@@ -6,6 +6,7 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy:coston2": "hardhat run scripts/deploy.ts --network coston2",
+    "deploy:oracle:coston2": "hardhat run scripts/deploy-oracle.ts --network coston2",
     "clean": "hardhat clean"
   },
   "devDependencies": {
